@@ -31,6 +31,7 @@ const (
 	sourceSorani        = "sorani"
 	sourceGuipian       = "guipian"
 	sourceHanxiaoquan   = "hanxiaoquan"
+	sourceDuanju        = "duanju"
 
 	providerMaxBodyBytes = 20 * 1024 * 1024
 	providerTimeout      = 12 * time.Second
@@ -38,8 +39,22 @@ const (
 
 var (
 	huangguoAIBaseURL     = "https://huangguoai.com"
-	huangguoAIBaseMirrors = []string{"https://huangguoai.com", "https://ttvoij.ediayikma.cc", "https://thu.ediayikma.cc", "https://pku.ediayikma.cc", "https://fdu.ediayikma.cc", "https://thu.agdkczeyx.cc"}
-	huangguoVideoBaseURL  = "https://huangguo.video"
+	huangguoAIBaseMirrors = []string{
+		"https://huangguoai.com",
+		"https://huangguoai.ai",
+		"https://huangguodrama.ai",
+		"https://huangguoai.pages.dev",
+		"https://bnu.gupuoplgm.cc",
+		"https://pku.gupuoplgm.cc",
+		"https://hit.gupuoplgm.cc",
+		"https://sdu.gupuoplgm.cc",
+		"https://ttvoij.ediayikma.cc",
+		"https://thu.ediayikma.cc",
+		"https://pku.ediayikma.cc",
+		"https://fdu.ediayikma.cc",
+		"https://thu.agdkczeyx.cc",
+	}
+	huangguoVideoBaseURL = "https://huangguo.video"
 
 	huangguoAISlugs     = []string{"recommend", "newest", "ai-duanju", "ai-manju", "ai-huanlian", "ai-mogai", "ranks/hot"}
 	huangguoAITypeNames = map[string]string{"recommend": "精选推荐", "newest": "最近上新", "ai-duanju": "AI成人短剧", "ai-manju": "AI成人漫剧", "ai-huanlian": "AI换脸", "ai-mogai": "AI魔改", "ranks/hot": "排行榜"}
@@ -91,7 +106,7 @@ func splitProviderDramaID(id string) (source, sourceID string, ok bool) {
 
 func isHuangguoProviderSource(source string) bool {
 	switch canonicalProviderSource(source) {
-	case sourceHuangguoAI, sourceHuangguoVideo, sourceHuangdou, sourceHongguo, sourceHuangju, sourceYeguo, sourceDSD, sourceCloudFront, sourceSorani, sourceGuipian, sourceHanxiaoquan:
+	case sourceHuangguoAI, sourceHuangguoVideo, sourceHuangdou, sourceHongguo, sourceHuangju, sourceYeguo, sourceDSD, sourceCloudFront, sourceSorani, sourceGuipian, sourceHanxiaoquan, sourceDuanju:
 		return true
 	default:
 		return false
@@ -122,6 +137,8 @@ func canonicalProviderSource(source string) string {
 		return sourceGuipian
 	case "hanxiaoquan", "jennyhow.com", "www.jennyhow.com":
 		return sourceHanxiaoquan
+	case "duanju", "bfzyapi.com", "www.bfzyapi.com":
+		return sourceDuanju
 	default:
 		return strings.TrimSpace(source)
 	}
@@ -239,6 +256,9 @@ func (d *Downloader) GetHuangguoChapters(ctx context.Context, source, sourceID s
 		return drama.DisplayTitle(), chapters, err
 	case sourceHanxiaoquan:
 		drama, chapters, err := d.fetchHanxiaoquanDetail(ctx, sourceID)
+		return drama.DisplayTitle(), chapters, err
+	case sourceDuanju:
+		drama, chapters, err := d.fetchDuanjuDetail(ctx, sourceID)
 		return drama.DisplayTitle(), chapters, err
 	case sourceCloudFront:
 		return d.fetchLegacyChapters(ctx, sourceID)
@@ -507,7 +527,10 @@ func generatedHuangguoAIMirrors(seed string, n int) []string {
 			continue
 		}
 		seen[sub] = true
-		out = append(out, "https://"+sub+".ediayikma.cc")
+		out = append(out, "https://"+sub+".gupuoplgm.cc", "https://"+sub+".ediayikma.cc")
+	}
+	if len(out) > n {
+		out = out[:n]
 	}
 	return out
 }

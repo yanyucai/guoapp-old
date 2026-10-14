@@ -16,7 +16,10 @@ import (
 	"strings"
 )
 
-const hongguoPlaybackAPI = "https://djapi.999888456.xyz/api/hongguo/play"
+var hongguoPlaybackAPIs = []string{
+	"https://djapi.999888456.xyz/api/hongguo/play",
+	"https://api.hongguo.999888456.xyz/api/hongguo/play",
+}
 
 var hongguoNumericID = regexp.MustCompile(`^[0-9]{1,32}$`)
 
@@ -50,58 +53,72 @@ func (d *Downloader) resolveHongguoPlaybackAPI(ctx context.Context, seriesID, vi
 		return providerMedia{}, err
 	}
 	query := url.Values{"id": {base64.StdEncoding.EncodeToString(reference)}}
-	body, err := d.fetchProviderText(ctx, hongguoPlaybackAPI+"?"+query.Encode(), hongguoBaseURL+"/")
-	if err != nil {
-		return providerMedia{}, err
-	}
-	decoded, err := decodeHongguoPlaybackResponse(body)
-	if err != nil {
-		return providerMedia{}, err
-	}
-	var response hongguoPlaybackResponse
-	if err := json.Unmarshal(decoded, &response); err != nil {
-		return providerMedia{}, errors.New("红果备用播放接口返回了无效数据")
-	}
-	for _, flag := range []json.RawMessage{response.Parse, response.JX} {
-		switch strings.TrimSpace(string(flag)) {
-		case "", "null", "false", "0", `"0"`, `""`:
-		default:
-			return providerMedia{}, errors.New("红果备用播放接口没有返回直接媒体地址")
-		}
-	}
-	var selected providerMedia
-	bestQuality := -1
-	var keyErr error
-	var variants []providerMedia
-	for _, option := range response.KeyURLs {
-		mediaURL := strings.TrimSpace(option.URL)
-		if len(mediaURL) > 8192 || !isProviderHTTPMediaURL(mediaURL) {
-			continue
-		}
-		keyID, err := hex.DecodeString(strings.TrimSpace(option.KeyID))
-		if err != nil || len(keyID) != aes.BlockSize {
-			keyErr = errors.New("红果媒体密钥标识无效")
-			continue
-		}
-		key, err := hongguoContentKey(option.SpadeA)
+	var lastErr error
+	for _, apiURL := range hongguoPlaybackAPIs {
+		body, err := d.fetchProviderText(ctx, apiURL+"?"+query.Encode(), hongguoBaseURL+"/")
 		if err != nil {
-			keyErr = err
+			lastErr = err
 			continue
 		}
-		quality, _ := strconv.Atoi(hongguoQualityNumber.FindString(option.Name))
-		media := providerMedia{URL: mediaURL, Referer: "https://novel.snssdk.com/", CENCKey: key, Quality: quality}
-		variants = append(variants, media)
-		if selected.URL == "" || quality > bestQuality {
-			selected = media
-			bestQuality = quality
+		decoded, err := decodeHongguoPlaybackResponse(body)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		var response hongguoPlaybackResponse
+		if err := json.Unmarshal(decoded, &response); err != nil {
+			lastErr = errors.New("红果备用播放接口返回了无效数据")
+			continue
+		}
+		direct := true
+		for _, flag := range []json.RawMessage{response.Parse, response.JX} {
+			switch strings.TrimSpace(string(flag)) {
+			case "", "null", "false", "0", `"0"`, `""`:
+			default:
+				direct = false
+			}
+		}
+		if !direct {
+			lastErr = errors.New("红果备用播放接口没有返回直接媒体地址")
+			continue
+		}
+		var selected providerMedia
+		bestQuality := -1
+		var keyErr error
+		var variants []providerMedia
+		for _, option := range response.KeyURLs {
+			mediaURL := strings.TrimSpace(option.URL)
+			if len(mediaURL) > 8192 || !isProviderHTTPMediaURL(mediaURL) {
+				continue
+			}
+			keyID, err := hex.DecodeString(strings.TrimSpace(option.KeyID))
+			if err != nil || len(keyID) != aes.BlockSize {
+				keyErr = errors.New("红果媒体密钥标识无效")
+				continue
+			}
+			key, err := hongguoContentKey(option.SpadeA)
+			if err != nil {
+				keyErr = err
+				continue
+			}
+			quality, _ := strconv.Atoi(hongguoQualityNumber.FindString(option.Name))
+			media := providerMedia{URL: mediaURL, Referer: "https://novel.snssdk.com/", CENCKey: key, Quality: quality}
+			variants = append(variants, media)
+			if selected.URL == "" || quality > bestQuality {
+				selected = media
+				bestQuality = quality
+			}
+		}
+		if selected.URL != "" {
+			selected.Variants = variants
+			return selected, nil
+		}
+		if keyErr != nil {
+			lastErr = keyErr
 		}
 	}
-	if selected.URL != "" {
-		selected.Variants = variants
-		return selected, nil
-	}
-	if keyErr != nil {
-		return providerMedia{}, keyErr
+	if lastErr != nil {
+		return providerMedia{}, lastErr
 	}
 	return providerMedia{}, errors.New("红果备用播放接口未返回该集可用的媒体和密钥，请稍后重试或确认该集是否仍可访问")
 }

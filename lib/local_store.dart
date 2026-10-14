@@ -141,20 +141,17 @@ class LocalStore extends ChangeNotifier {
     unlocked: _gateOff || _sourcesUnlocked,
   ).where((site) => allowsSource(site.id)).toList();
 
-  /// 默认隐藏的站源是否已解锁。解锁状态只在本次运行内有效，重启后恢复隐藏。
   bool get sourcesUnlocked => _gateOff || _sourcesUnlocked;
 
-  /// 是否已启用站源密码锁。
   bool get sourceGateEnabled => _gateEnabled;
 
   bool get sourceGateConfigured => _gateSalt.isNotEmpty && _gateHash.isNotEmpty;
 
-  /// 当前是否处于「不使用密码、显示全部站源」状态。
   bool get sourceGateOff => _gateOff;
 
   void _loadSourceGate() {
     final enabled = _bool('sourceGateEnabled') ?? false;
-    final off = _bool('sourceGateOff') ?? false;
+    final off = _bool('sourceGateOff') ?? true;
     final salt = _string('sourceGateSalt') ?? '';
     final hash = _string('sourceGateHash') ?? '';
     final valid =
@@ -162,10 +159,10 @@ class LocalStore extends ChangeNotifier {
         RegExp(r'^[a-f0-9]{32}$').hasMatch(salt) &&
         RegExp(r'^[a-f0-9]{64}$').hasMatch(hash);
     _gateEnabled = valid;
-    _gateOff = !valid && off;
+    _gateOff = !valid || off;
     _gateSalt = valid ? salt : '';
     _gateHash = valid ? hash : '';
-    _sourcesUnlocked = false;
+    _sourcesUnlocked = true;
   }
 
   Future<void> _checkSourcePin(String pin) async {

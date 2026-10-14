@@ -14,7 +14,8 @@ class SourceSite {
       id == 'dsd' ||
       id == 'sorani' ||
       id == 'guipian' ||
-      id == 'hanxiaoquan';
+      id == 'hanxiaoquan' ||
+      id == 'duanju';
   bool get searchSuggestions => id == 'hongguo';
   String get groupId => switch (id) {
     'huangguo-video' || 'huangguoai' || 'cloudfront' => 'huangguo',
@@ -29,6 +30,7 @@ class SourceSite {
   };
 
   static const hongguo = SourceSite('hongguo', '红果', '短剧 · 漫剧 · AI 剧');
+  static const duanju = SourceSite('duanju', '聚合短剧', '万部短剧 · 分类索引 · 在线搜索');
   static const dsd = SourceSite('dsd', '帝果', '分类视频 · 在线搜索');
   static const sorani = SourceSite('sorani', '青空', '番剧 · 剧场动画 · 特摄');
   static const guipian = SourceSite('guipian', '鬼片', '鬼片 · 电视剧 · 动漫');
@@ -38,11 +40,12 @@ class SourceSite {
     '韩剧 · 韩国电影 · 综艺动漫',
   );
 
-  /// 默认可见的站源：红果、韩小圈、鬼片网、青空次元。
-  static const primaryValues = [hongguo, hanxiaoquan, guipian, sorani];
-
-  /// 敏感站源：默认隐藏，输入解锁密码后才显示。
-  static const restrictedValues = [
+  static const knownValues = [
+    hongguo,
+    duanju,
+    hanxiaoquan,
+    guipian,
+    sorani,
     SourceSite('huangdou', '黄豆', '精选短剧'),
     SourceSite('huangju', '剧果', '热门 · 最新 · 分类短剧'),
     SourceSite('yeguo', '野果', '分类短剧 · 在线搜索'),
@@ -51,21 +54,16 @@ class SourceSite {
     SourceSite('huangguoai', '黄果 AI', 'AI 短剧'),
     SourceSite('cloudfront', '黄果旧版', '旧 API 剧库'),
   ];
-  static const knownValues = [...primaryValues, ...restrictedValues];
-  static const allValues = [...primaryValues, ...restrictedValues];
+  static const primaryValues = knownValues;
+  static const restrictedValues = <SourceSite>[];
+  static const allValues = knownValues;
   static const values = allSourcesEnabled ? knownValues : [hongguo];
   static bool isAvailable(String id) => values.any((site) => site.id == id);
   static bool isKnown(String id) => allValues.any((site) => site.id == id);
-  static bool isPrimary(String id) =>
-      primaryValues.any((site) => site.id == id);
-  static bool isRestricted(String id) =>
-      restrictedValues.any((site) => site.id == id);
+  static bool isPrimary(String id) => true;
+  static bool isRestricted(String id) => false;
 
-  /// 运行时可见站源：未解锁时只保留 [primaryValues]。
-  static List<SourceSite> visibleValues({required bool unlocked}) => [
-    for (final site in values)
-      if (unlocked || isPrimary(site.id)) site,
-  ];
+  static List<SourceSite> visibleValues({bool unlocked = true}) => values;
   static SourceSite byId(String id) =>
       allValues.firstWhere((site) => site.id == id, orElse: () => hongguo);
 }

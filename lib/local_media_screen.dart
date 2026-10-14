@@ -11,6 +11,7 @@ import 'models.dart';
 import 'player_screen.dart';
 import 'settings_screen.dart';
 import 'merge_queue_screen.dart';
+import 'video_export_service.dart';
 
 class LocalMediaScreen extends StatefulWidget {
   const LocalMediaScreen({
@@ -346,6 +347,22 @@ class _LocalMediaScreenState extends State<LocalMediaScreen> {
                                             ? '全集播放'
                                             : '本地播放',
                                       ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: library.busy
+                                          ? null
+                                          : () => showVideoExportDialog(
+                                              context: context,
+                                              repository: widget.repository,
+                                              mediaItem: item,
+                                              mediaFilePath: library.fileFor(
+                                                item,
+                                              ),
+                                            ),
+                                      icon: const Icon(
+                                        Icons.file_upload_outlined,
+                                      ),
+                                      label: const Text('导出视频'),
                                     ),
                                     const Spacer(),
                                     IconButton(

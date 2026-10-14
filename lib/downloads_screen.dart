@@ -12,6 +12,7 @@ import 'local_media_screen.dart';
 import 'models.dart';
 import 'player_screen.dart';
 import 'settings_screen.dart';
+import 'video_export_service.dart';
 import 'widgets.dart';
 
 class DownloadsScreen extends StatefulWidget {
@@ -409,15 +410,23 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       onSelected: (value) {
         if (value == 'refresh') {
           _refresh();
+        } else if (value == 'exportAll') {
+          showVideoExportDialog(
+            context: context,
+            repository: widget.repository,
+            jobs: _jobs.where((job) => job.completed).toList(),
+          );
         } else {
           _batch(value, _jobs);
         }
       },
-      itemBuilder: (_) => const [
-        PopupMenuItem(value: 'pause', child: Text('全部暂停')),
-        PopupMenuItem(value: 'resume', child: Text('全部继续')),
-        PopupMenuItem(value: 'archive', child: Text('清理已完成任务，保留视频')),
-        PopupMenuItem(value: 'refresh', child: Text('刷新记录')),
+      itemBuilder: (_) => [
+        const PopupMenuItem(value: 'pause', child: Text('全部暂停')),
+        const PopupMenuItem(value: 'resume', child: Text('全部继续')),
+        const PopupMenuItem(value: 'archive', child: Text('清理已完成任务，保留视频')),
+        if (_jobs.any((job) => job.completed))
+          const PopupMenuItem(value: 'exportAll', child: Text('导出已下载视频到目录')),
+        const PopupMenuItem(value: 'refresh', child: Text('刷新记录')),
       ],
     ),
   ];
@@ -463,6 +472,12 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
               _update(collection.drama);
             } else if (value == 'select') {
               _select(collection.jobs);
+            } else if (value == 'export') {
+              showVideoExportDialog(
+                context: context,
+                repository: widget.repository,
+                jobs: collection.jobs.where((job) => job.completed).toList(),
+              );
             } else {
               _batch(value, collection.jobs);
             }
@@ -474,6 +489,8 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
               child: const Text('更新本剧 · 补充新增与缺失'),
             ),
             const PopupMenuItem(value: 'select', child: Text('选择本合集')),
+            if (collection.jobs.any((job) => job.completed))
+              const PopupMenuItem(value: 'export', child: Text('导出本剧已下载视频到目录')),
             const PopupMenuItem(value: 'pause', child: Text('暂停本合集')),
             const PopupMenuItem(value: 'resume', child: Text('继续 / 重试本合集')),
             const PopupMenuItem(value: 'archive', child: Text('清理已完成任务，保留视频')),
@@ -528,13 +545,24 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                     onSelected: (value) {
                       if (value == 'play') {
                         _play(job);
+                      } else if (value == 'export') {
+                        showVideoExportDialog(
+                          context: context,
+                          repository: widget.repository,
+                          jobs: [job],
+                        );
                       } else {
                         _batch(value, [job]);
                       }
                     },
                     itemBuilder: (_) => [
-                      if (job.completed)
+                      if (job.completed) ...[
                         const PopupMenuItem(value: 'play', child: Text('本地播放')),
+                        const PopupMenuItem(
+                          value: 'export',
+                          child: Text('导出视频到目录'),
+                        ),
+                      ],
                       if (job.active)
                         const PopupMenuItem(value: 'pause', child: Text('暂停')),
                       if (job.resumable)
@@ -596,6 +624,24 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                         ),
                   child: Text(entry.value),
                 ),
+              TextButton(
+                onPressed:
+                    _jobs.any(
+                      (job) => _selected.contains(job.id) && job.completed,
+                    )
+                    ? () => showVideoExportDialog(
+                        context: context,
+                        repository: widget.repository,
+                        jobs: _jobs
+                            .where(
+                              (job) =>
+                                  _selected.contains(job.id) && job.completed,
+                            )
+                            .toList(),
+                      )
+                    : null,
+                child: const Text('导出视频'),
+              ),
               if (_retryCommand != null)
                 FilledButton(
                   onPressed: () => _batch(
